@@ -1,0 +1,10 @@
+# ignore some dirs
+all_outs/
+all_outs_0830/
+
+
+# datasets
+/datasets/
+
+# vscode debug 
+vscode/
