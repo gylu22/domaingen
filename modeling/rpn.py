@@ -87,15 +87,17 @@ class SBRPN(RPN):
         # if self.training:
 
         # if gt_instances is None:
+        ######################### clip the gap has this part ##########
         out = [
                 # (N, Hi*Wi*A) -> (N, Hi, Wi, A)
-                score.reshape(features[ind].shape[0],features[ind].shape[-2],features[ind].shape[-1],-1)
-                for ind, score in enumerate(pred_objectness_logits)
-            ]
+               score.reshape(features[ind].shape[0],features[ind].shape[-2],features[ind].shape[-1],-1)
+               for ind, score in enumerate(pred_objectness_logits)
+           ]
+        
         # else:
             # b,_,h,w = features[0].shape
             # out = [1.*(torch.stack(gt_labels)==1).reshape(b,h,w,-1)]
-        return out, proposals, losses
+        return  out,proposals, losses
         # else:
         #     return proposals, losses
 

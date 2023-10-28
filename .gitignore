@@ -1,10 +1,21 @@
 # ignore some dirs
-all_outs/
-all_outs_0830/
+all_outs*/
+
 
 
 # datasets
 /datasets/
+inter_features
 
 # vscode debug 
 vscode/
+
+
+
+visualization
+# .py
+t-sne.py
+
+# txt
+
+grad.txt

@@ -30,6 +30,7 @@ class ClipRN101(Backbone):
         
         self.backbone_unchanged = nn.Sequential(*self.enc.layer3[:19])
 
+
     def forward(self, image):
         x = image
         x = self.enc.relu1(self.enc.bn1(self.enc.conv1(x)))
@@ -64,13 +65,15 @@ class ClipRN101(Backbone):
         return {"res4": ShapeSpec(channels=1024, stride=16)}
     
     def forward_res5(self,x):
-        #detectron used last resnet layer for roi heads
+        # detectron used last resnet layer for roi heads
         return self.enc.layer4(x)
 
     def attention_global_pool(self,input):
         x = input
         x = self.enc.attnpool(x)
         return x
+
+    
     
 @BACKBONE_REGISTRY.register()
 class ClipRN101Denoise(Backbone):
@@ -78,12 +81,11 @@ class ClipRN101Denoise(Backbone):
     def __init__(self,cfg,clip_visual):
         super().__init__()
         self.unfreeze = cfg.MODEL.BACKBONE.UNFREEZE
-        self.text_project = nn.Sequential()
-        self.denoise = nn.Sequential()
-        
+    
+
     def set_backbone_model(self,model):
         self.enc = model
-
+        
         
     def forward(self, image):
         x = image
@@ -94,17 +96,21 @@ class ClipRN101Denoise(Backbone):
         
         x = self.enc.layer1(x)
         x = self.enc.layer2(x)
-        x = self.enc.layer3(x)
-        return {"res4": x}
+        return {"res3":x} 
     
-
+    
+    def forward_res4(self,x):
+        x = self.enc.layer3(x)
+        return {"res4":x}
+   
     def forward_res5(self,x):
         #detectron used last resnet layer for roi heads
         return self.enc.layer4(x)
-
 
     def attention_global_pool(self,input):
         x = input
         x = self.enc.attnpool(x)
         return x
-        
+    
+    def output_shape(self):
+        return {"res4": ShapeSpec(channels=1024, stride=16)}

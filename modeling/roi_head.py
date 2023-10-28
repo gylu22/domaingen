@@ -1,22 +1,18 @@
-from pydoc import classname
 from typing import Dict, List, Optional, Tuple
 import torch
-import torch.nn as nn
-
-
-import torchvision.transforms as T
-
 
 from detectron2.layers import ShapeSpec
 from detectron2.data import MetadataCatalog
 
 from detectron2.modeling.roi_heads.roi_heads import ROI_HEADS_REGISTRY,  Res5ROIHeads
-from detectron2.structures import Boxes, ImageList, Instances, pairwise_iou
+from detectron2.structures import Boxes, ImageList, Instances
 from .box_predictor import ClipFastRCNNOutputLayers
+
+
 
 def select_foreground_proposals(
     proposals: List[Instances], bg_label: int
-) -> Tuple[List[Instances], List[torch.Tensor]]:
+) -> Tuple[List[Instances], List[torch.Tensor]]: 
     """
     Given a list of N Instances (for N images), each containing a `gt_classes` field,
     return a list of Instances that contain only instances with `gt_classes != -1 &&
@@ -58,8 +54,9 @@ class ClipRes5ROIHeads(Res5ROIHeads):
        
         out_channels=cfg.MODEL.RESNETS.RES2_OUT_CHANNELS * (2 ** 3) ### copied 
         self.box_predictor = ClipFastRCNNOutputLayers(cfg, ShapeSpec(channels=out_channels, height=1, width=1), clsnames)
-        self.clip_im_predictor = self.box_predictor.cls_score # should call it properly
+        # self.clip_im_predictor = self.box_predictor.cls_score # should call it properly
         self.device = cfg.MODEL.DEVICE
+    
     def forward(
         self,
         images: ImageList,
@@ -212,3 +209,69 @@ class ClipRes5ROIHeadsAttn(ClipRes5ROIHeads):
             return pred_instances, {}
 
 
+@ROI_HEADS_REGISTRY.register()
+class ClipRes5ROIHead(ClipRes5ROIHeads): 
+    
+    def __init__(self, cfg, input_shape) -> None:
+        super().__init__(cfg, input_shape)
+        # self.res5 = None
+    
+    def _shared_roi_transform(self, features, boxes):
+        x = self.pooler(features, boxes)
+        return self.fwdres5(x)
+
+    def forward(
+        self,
+        images: ImageList,
+        features: Dict[str, torch.Tensor],
+        proposals: List[Instances],
+        targets: Optional[List[Instances]] = None,
+        backbone = None
+    ):
+        """
+        See :meth:`ROIHeads.forward`.
+        """
+        del images
+
+        self.fwdres5 = backbone.forward_res5
+
+        if self.training:
+            assert targets
+            proposals = self.label_and_sample_proposals(proposals, targets) # 返回512个采样的box
+
+        del targets
+
+        proposal_boxes = [x.proposal_boxes for x in proposals]
+        box_features = self._shared_roi_transform(
+            [features[f] for f in self.in_features], proposal_boxes
+        )
+
+        attn_feat = backbone.attention_global_pool(box_features)
+        predictions = self.box_predictor([attn_feat,box_features.mean(dim=(2,3))])
+        
+        # import pdb;pdb.set_trace()
+        if self.training:
+            del features
+            
+            losses = self.box_predictor.losses(predictions, proposals)
+    
+            if self.mask_on:
+                proposals, fg_selection_masks = select_foreground_proposals(
+                    proposals, self.num_classes
+                )
+                # Since the ROI feature transform is shared between boxes and masks,
+                # we don't need to recompute features. The mask loss is only defined
+                # on foreground proposals, so we need to select out the foreground
+                # features.
+                mask_features = box_features[torch.cat(fg_selection_masks, dim=0)]
+                del box_features
+                losses.update(self.mask_head(mask_features, proposals))
+                
+            return [], losses
+        else:
+            pred_instances, _ = self.box_predictor.inference(predictions, proposals)
+            pred_instances = self.forward_with_given_boxes(features, pred_instances)
+            return pred_instances, {}
+        
+        
+    
