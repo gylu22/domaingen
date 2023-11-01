@@ -207,27 +207,29 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
         self.apply_aug = cfg.AUG_PROB
         # PMS: prompt based mean and std generation module 
         # mean linear module 
-        self.gen_style_mean = nn.Sequential(nn.Linear(512,2048),
-                                      nn.Linear(2048,1024))
+        self.gen_style_mean = nn.Sequential(nn.Linear(512,1024),
+                                      nn.Linear(1024,256),
+                                      nn.Sigmoid())
         # std linear module 
         #####
-        self.gen_style_std = nn.Sequential(nn.Linear(512,2048),
-                                     nn.Linear(2048,1024))
+        self.gen_style_std = nn.Sequential(nn.Linear(512,1024),
+                                     nn.Linear(1024,256),
+                                     nn.ReLU())
         self._init_weights(self.gen_style_mean)
         self._init_weights(self.gen_style_std)
         # style head 
-        self.style_head = ClipRes5ROIHeadsStyle(cfg, self.backbone.output_shape())
+        # self.style_head = ClipRes5ROIHeadsStyle(cfg, self.backbone.output_shape())
         # add CLIP Vb for the head
-        self.style_head.clip_vb = copy.deepcopy(self.backbone.enc.layer4)        
+        # self.style_head.clip_vb = copy.deepcopy(self.backbone.enc.layer4)        
         # add CLIP attention_global_pool module 
-        self.style_head.attention_global_pool = copy.deepcopy(self.backbone.attention_global_pool)
+        # self.style_head.attention_global_pool = copy.deepcopy(self.backbone.attention_global_pool)
             
              
              
     def _init_weights(self,module):
         for m in module:
             if isinstance(m,nn.Linear):
-                nn.init.normal_(m.weight, mean=0.0, std=1.0)
+                nn.init.normal_(m.weight, mean=0.0, std=1)
                 nn.init.zeros_(m.bias)
          
         
@@ -241,41 +243,50 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         # get backbone layer2 output tensor 
-        features = self.backbone(images.tensor)
-        
-        # apply the instance normlization 
-        # random select bs style 
         style_id  = torch.randint(low=0, high=19, size=(b,)).to(images.device)
         # self.domian_id = style_id
         # generate the mean and std of the transform 
         style_domain = self.domain_text_features[style_id]
         beta = self.gen_style_mean(style_domain)
         gamma = self.gen_style_mean(style_domain)
-        # feature style transform 
-        features_ = {}
-        new_features = self.instance_norm(features['res4'],beta,gamma)
-        features_['res4'] = new_features
+
+        features = self.backbone(images.tensor,beta,gamma)
+        # apply the instance normlization 
+        # random select bs style 
+        ## style_id  = torch.randint(low=0, high=19, size=(b,)).to(images.device)
+        # self.domian_id = style_id
+        # generate the mean and std of the transform 
+        ## style_domain = self.domain_text_features[style_id]
+        ## beta = self.gen_style_mean(style_domain)
+        ## gamma = self.gen_style_mean(style_domain)
+        ## gamma = nn.ReLU(gamma)
+        
+        
+        # feature style transform ####################
+        # features_ = {}
+        # new_features = self.instance_norm(features['res4'],beta,gamma)
+        # features_['res4'] = new_features
         
         # features after instance normlization 
         if self.proposal_generator is not None:
             if self.training:
-                logits,proposals, proposal_losses = self.proposal_generator(images, features_, gt_instances)                
+                logits,proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)                
             else:
-                logits,proposals, proposal_losses = self.proposal_generator(images, features_, gt_instances)
+                logits,proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
         else:
             assert "proposals" in batched_inputs[0]
             proposals = [x["proposals"].to(self.device) for x in batched_inputs]
             proposal_losses = {}
         
         # compute the style score and bbox loss 
-        style_loss = self.style_head(images, features_, proposals, gt_instances,style_id)
-        style_loss_ = {}
-        for key,val in style_loss.items():
-            style_loss_[f'style_{key}'] = val
+        # style_loss = self.style_head(images, features_, proposals, gt_instances,style_id)
+        # style_loss_ = {}
+        # for key,val in style_loss.items():
+            # style_loss_[f'style_{key}'] = val
             
         # compute the original cls and bbox loss 
         # try:
-        _, detector_losses = self.roi_heads(images, features_, proposals, gt_instances, self.backbone)
+        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances, self.backbone)
         # except Exception as e:
         #     print(e)
         #     _, detector_losses = self.roi_heads(images, features, proposals, gt_instances, None)
@@ -296,7 +307,7 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
         losses = {}
         losses.update(detector_losses)
         losses.update(proposal_losses)
-        losses.update(style_loss_)
+        # losses.update(style_loss_)
         return losses
         
 ###################### test time feature transform     ############################   
@@ -363,27 +374,24 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
     
     
     
-    def instance_norm(self,
-                        x:torch.Tensor,
-                        beta:torch.Tensor, 
-                        gamma:torch.Tensor,
-                        p = 0.5) -> torch.Tensor:
+    # def instance_norm(self,
+    #                     x:torch.Tensor,
+    #                     beta:torch.Tensor, 
+    #                     gamma:torch.Tensor,
+    #                     p = 0.5) -> torch.Tensor:
         
-        if random.random() > p:
-            return x
-        B = x.size(0)
-        eps = 1e-6
-        mu = x.mean(dim=[2, 3], keepdim=True)
-        var = x.var(dim=[2, 3], keepdim=True)
-        sig = (var + eps).sqrt()
-        mu, sig = mu.detach(), sig.detach()
-        x_normed = (x-mu) / sig
-        return x_normed * gamma + beta
+    #     if random.random() > p:
+    #         return x
+    #     B = x.size(0)
+    #     eps = 1e-6
+    #     mu = x.mean(dim=[2, 3], keepdim=True)
+    #     var = x.var(dim=[2, 3], keepdim=True)
+    #     sig = (var + eps).sqrt()
+    #     mu, sig = mu.detach(), sig.detach()
+    #     x_normed = (x-mu) / sig
+    #     return x_normed * gamma.view(gamma.shape[0],gamma.shape[1],1,1) + beta.view(beta.shape[0],beta.shape[1],1,1)
     
-    
-    
-    
-    
+ 
     
     
     # def inverse_instance_norm(self,

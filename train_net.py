@@ -455,10 +455,12 @@ def main(args):
     #     elif 'backbone' in name:
     #         parameter.requires_grad = False
     # for name, parameter in trainer.model.named_parameters():
+    #     if 'backbone' in name:
+    #         parameter.requires_grad = False
+    # for name, parameter in trainer.model.named_parameters():
     #     if 'backbone.enc.layer4' in name:  
     #         parameter.requires_grad = True
-    #     elif 'backbone.enc.attnpool' in name: 
-    #         parameter.requires_grad = True  
+        
     # with open('grad.txt','w') as f:
     #     for name, parameter in trainer.model.named_parameters():
     #         f.write(f"{name}:{parameter.requires_grad}\n")  
