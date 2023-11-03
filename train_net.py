@@ -449,21 +449,21 @@ def main(args):
         return do_test(cfg,model)
     trainer = Trainer(cfg)
     ################## temp to freeze the new module ################## 
+    # freeze_layer = ['backbone.enc','proposal_generator','roi_heads']
     # for name, parameter in trainer.model.named_parameters():
-    #     if 'cls_score' in name:
-    #         parameter.requires_grad = False
-    #     elif 'backbone' in name:
-    #         parameter.requires_grad = False
-    # for name, parameter in trainer.model.named_parameters():
-    #     if 'backbone' in name:
-    #         parameter.requires_grad = False
-    # for name, parameter in trainer.model.named_parameters():
-    #     if 'backbone.enc.layer4' in name:  
-    #         parameter.requires_grad = True
+    #     for m in freeze_layer:
+    #         if m in name:
+    #             parameter.requires_grad=False
+    #         else:
+    #             parameter.requires_grad=True    
+    for name, parameter in trainer.model.named_parameters():
         
-    # with open('grad.txt','w') as f:
-    #     for name, parameter in trainer.model.named_parameters():
-    #         f.write(f"{name}:{parameter.requires_grad}\n")  
+        if ('backbone' in name) and ('backbone.enc.attnpool') not in name and ('backbone.enc.layer4' not in name):
+            parameter.requires_grad=False
+    
+    with open('grad.txt','w') as f:
+        for name, parameter in trainer.model.named_parameters():
+            f.write(f"{name}:{parameter.requires_grad}\n")  
     trainer.resume_or_load(resume=args.resume)
     for dataset_name in cfg.DATASETS.TEST:
         if 'daytime_clear_test' in dataset_name :
