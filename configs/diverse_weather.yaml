@@ -1,7 +1,7 @@
 BASE_YAML: "COCO-Detection/faster_rcnn_R_101_C4_3x.yaml"
 DATASETS:
         TRAIN: ("daytime_clear_train",)
-        TEST: ('daytime_clear_test',)
+        TEST: ('night_rainy_train',)
         # daytime_clear_test'daytime_foggy_train','night_sunny_train','night_rainy_train','dusk_rainy_train')
 DATALOADER:
         NUM_WORKERS: 8
@@ -23,7 +23,7 @@ SOLVER:
 MODEL:
         BACKBONE:
                 NAME: ClipRN101
-        WEIGHTS: 'all_outs_stage1/diverse_weather/model_best.pth'
+        WEIGHTS: 'all_outs_freeze_all_gen_style/diverse_weather/model_0039999.pth'
         CLIP_IMAGE_ENCODER_NAME: 'RN101'
         META_ARCHITECTURE: 'ClipRCNNWithClipBackboneGenTrainable'
 

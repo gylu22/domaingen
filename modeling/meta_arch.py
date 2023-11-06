@@ -256,13 +256,18 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
         style_domain = self.domain_text_features[style_id]
         beta = self.gen_style_mean(self.style_m[style_id])
         gamma = self.gen_style_std(self.style_s[style_id])
-
+        
+        # all_beta = self.gen_style_mean(self.style_m)
+        # torch.save(all_beta,'inter_features/domain_mean_19.pkl')
         style_features = self.instance_norm(features['res4'],beta,gamma)
+        ## apply adain
+        features['res4'] = style_features
         style_features = F.interpolate(style_features,size=(14,14),mode='bilinear', align_corners=False)
         style_features = self.style_attn(self.style_clip_vb(style_features))
         
         loss_dir = self.dir_loss(style_features,style_domain)
-
+        
+    
         # features after instance normlization 
         if self.proposal_generator is not None:
             if self.training:
@@ -470,6 +475,38 @@ class ClipRCNNWithClipBackboneGenTrainable(ClipRCNNWithClipBackbone):
                 return allresults
             else:
                 return results
+    
+    ## this is used to get the style feature map 
+    # def forward(self,batched_inputs):
+    #     if not self.training:
+    #         return self.inference(batched_inputs)
+   
+    #     images = self.preprocess_image(batched_inputs)
+    #     b = images.tensor.shape[0] # batchsize
+
+    #     if "instances" in batched_inputs[0]:
+    #         gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+   
+    #     features = self.backbone(images.tensor)
+    #     # domain text features 
+    #     style_domain = self.domain_text_features
+    
+    #     beta = self.gen_style_mean(self.style_m)
+    #     gamma = self.gen_style_std(self.style_s)
+    #     # style_feature_list = []
+    #     # for i in range(style_domain.shape[0]):
+    #     #     style_features = self.instance_norm(features['res4'],beta[i].reshape(1,-1),gamma[i].reshape(1,-1))
+    #     #     style_feature_list.append(style_features)
+    
+    #     return beta
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     

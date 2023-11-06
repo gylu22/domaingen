@@ -456,14 +456,18 @@ def main(args):
     #             parameter.requires_grad=False
     #         else:
     #             parameter.requires_grad=True    
-    for name, parameter in trainer.model.named_parameters():
-        
-        if ('backbone' in name) and ('backbone.enc.attnpool') not in name and ('backbone.enc.layer4' not in name):
-            parameter.requires_grad=False
     
-    with open('grad.txt','w') as f:
-        for name, parameter in trainer.model.named_parameters():
-            f.write(f"{name}:{parameter.requires_grad}\n")  
+    ### this is harmful to the model 
+    # for name, parameter in trainer.model.named_parameters():
+        
+    #     if ('backbone' in name) and ('backbone.enc.attnpool') not in name and ('backbone.enc.layer4' not in name):
+    #         parameter.requires_grad=False
+    #     elif 'style' in name:
+    #         parameter.requires_grad=False
+                                        
+    # with open('grad.txt','w') as f:
+    #     for name, parameter in trainer.model.named_parameters():
+    #         f.write(f"{name}:{parameter.requires_grad}\n")  
     trainer.resume_or_load(resume=args.resume)
     for dataset_name in cfg.DATASETS.TEST:
         if 'daytime_clear_test' in dataset_name :
@@ -497,13 +501,11 @@ def main(args):
 #                 #     continue
 #                 feature_map,feature_style = model(batch_data) 
 #                 # feature_map = feature_map['res4']
-#                 # std = torch.std(feature_map, dim=(-2, -1))
 #                 feature_map = torch.mean(feature_map, dim=(-2, -1))
 #                 feature_style = torch.mean(feature_style, dim=(-2, -1))
-#                 # feature_map = poolar(feature_map)
+            
 #                 feature_maps.append(feature_map)
 #                 feature_style.append(feature_style)
-#                 # stds.append(std)
 #             feature_maps = torch.cat(feature_maps,dim=0)
 #             feature_style = torch.cat(feature_style,dim=0)
 #             # stds = torch.cat(stds,dim=0)        
